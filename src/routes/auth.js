@@ -1,44 +1,24 @@
 const router = require("express").Router();
 const User = require("../models/user");
-const client = require('twilio')('AC1833a7d81802bc9085301c5bfa461cdb','283c63626c51b57f4971e3fe4098bf66')
+const client = require("twilio")(process.env.APP_ID, process.env.TOKEN);
 
 router.post("/send-otp", async (req, res) => {
   const { phone } = req.body;
-  // const vonage = new Vonage({
-  //   apiKey: "6474bd37",
-  //   apiSecret: "RzgZcj8tE0JadOad",
-  // });
-  // const from = "PaylessGate Team";
-  // const to = phone;
 
   const newUser = new User({
     phone: phone,
   });
 
   await newUser.generateOtp();
-  const text = "OTP Code: " + newUser.otp.code;
   async function sendSMS() {
-    client.messages 
-      .create({         
-         to: phone ,
-         body : 'Your OTP Verition Code is '+newUser.otp.code,
-         from : '+15719827694'
-
-
-       }) 
-      .then(message => console.log(message)) 
-      .catch(err => console.log(err));
-    // await vonage.sms
-    //   .send({ to, from, text })
-    //   .then(async (response) => {
-    //     const userExists = await User.findOne({ phone: phone });
-    //     if (!userExists) {
-    //     }
-    //   })
-    //   .catch((err) => {
-    //     console.log("There was an error sending the messages.");
-    //     console.error(err);
-    //   });
+    client.messages
+      .create({
+        to: phone,
+        body: "Your OTP Verition Code is " + newUser.otp.code,
+        from: "+15719827694",
+      })
+      .then((message) => console.log(message))
+      .catch((err) => console.log(err));
   }
 
   const userExist = User.findOne({ phone: phone });
@@ -50,9 +30,7 @@ router.post("/send-otp", async (req, res) => {
       .status(200)
       .send({ message: `Code has been sent to ${phone.replace("855", "0")}` });
   } else {
-    res
-      .status(500)
-      .send({ message: "Internal Server Error" });
+    res.status(500).send({ message: "Internal Server Error" });
   }
 });
 router.post("/verify-otp", async (req, res) => {
@@ -90,6 +68,10 @@ router.post("/verify-otp", async (req, res) => {
           res.status(400).send({ success: false, message: "Error is here" });
         }
       } else {
+        const options = {
+          upsert: true,
+          new: true,
+        };
         const result = await User.findOneAndUpdate(
           { phone: req.body.phone },
 
