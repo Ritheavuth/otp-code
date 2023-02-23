@@ -1,87 +1,57 @@
 const router = require("express").Router();
 const User = require("../models/user");
 const sdk = require("api")("@movider/v1.0#3dy29x1ekssmjp2d");
-
+const axios =require('axios')
 router.post("/send-otp", async (req, res) => {
-  const { phone } = req.body;
+  const  phone  = req.body.phone;
 
-  const newUser = new User({
-    phone: phone,
-  });
+  const otp = Math.floor(100000 + Math.random() * 900000);
 
-  async function sendSMS() {
-    sdk
-      .postVerify(
-        {
-          api_key: process.env.API_KEY,
-          api_secret: process.env.API_SECRET,
-          to: phone,
-        },
-        { accept: "application/json" }
-      )
-      .then(async ({ data }) => {
-        newUser.request_id = data.request_id;
-        await newUser.save();
-        console.log(data);
-        return res
-          .status(200)
-          .send({
-            message: `Code has been sent to ${phone.replace("+855", "0")}`,
-          });
+  const existUser = await User.findOne({phone: phone},)
+  console.log(existUser)
+    await axios.post(`https://cloudapi.plasgate.com/rest/send?private_key=${process.env.PRIVATE_KEY}`,{
+      "sender" : "SMS Info",
+      "to" : phone ,
+      "content" : "OTP code is "+otp
+  },{
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Secret' : process.env.SECRET_KEY
+      }
+    }).then(async (response) => {
+      console.log(response.data)
+      const existUser = await User.findOne({phone: phone})
+      if(existUser){
+        existUser.otp = otp
+        existUser.save()
+        return res.status(200).json({message : "Notification Sent to existing user",existUser})
+      }
+      const newUser = new User({
+        phone: phone,
+        otp : otp
       })
-      .catch((err) => res.status(500).send({ message: err }));
-  }
-  await sendSMS();
-});
+      newUser.save()
+      res.status(200).json({message : "Notification Sent to new user",newUser})
 
+    }).catch((error) => {
+      console.log(error)
+      return res.status(500).json({message : err})
+    })
+  
+})
 router.post("/verify-otp", async (req, res) => {
   const code = req.body.otpCode;
-  const userData = User.findOne(
-    { phone: req.body.phone },
-    async (err, user) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send("Internal server error");
-      }
-      if (!user) {
-        return res.status(404).send("User not found");
-      }
-
-      sdk
-        .postVerifyAcknowledge(
-          {
-            api_key: process.env.API_KEY,
-            api_secret: process.env.API_SECRET,
-            request_id: user.request_id,
-            code: code,
-          },
-          { accept: "application/json" }
-        )
-        .then(async ({ data }) => {
-          const options = {
-            upsert: true,
-            new: true,
-          };
-
-          try {
-            const result = await User.findOneAndUpdate(
-              { phone: req.body.phone },
-              { verified: true },
-              options
-            );
-            return res.send({
-              success: true,
-              message: "Your Account has been verified",
-            });
-          } catch (error) {
-            res.status(400).send({ success: false, message: error });
-          }
-        })
-        .catch((err) => {
-          return res.send(err)
-        });
+   const user = await User.findOne(
+    { phone: req.body.phone })
+    if(!user){
+      return res.status(404).json({message : "User not found"})
     }
-  );
-});
+    if(user.otp == code){
+      user.verified = true
+      user.save()
+      return res.status(200).json({message : "User verified",user})
+    }
+    return res.status(400).json({message : "Invalid OTP"})
+})
 
 module.exports = router;

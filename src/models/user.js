@@ -4,16 +4,17 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: true,
-    unique: true,
   },
   verified: {
     type: Boolean,
     default: false
   },
-  request_id: {
+
+  otp : {
     type: String,
-    default: ""
+    
   }
+
 });
 
 const User = mongoose.model("User", userSchema);
