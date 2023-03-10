@@ -1,18 +1,18 @@
 const router = require("express").Router();
 const User = require("../models/user");
-const sdk = require("api")("@movider/v1.0#3dy29x1ekssmjp2d");
 const axios =require('axios')
 router.post("/send-otp", async (req, res) => {
   const  phone  = req.body.phone;
+  const hashkey = req.body.hashkey;
 
   const otp = Math.floor(100000 + Math.random() * 900000);
 
-  const existUser = await User.findOne({phone: phone},)
-  console.log(existUser)
+  // const existUser = await User.findOne({phone: phone},)
+  // console.log(existUser)
     await axios.post(`https://cloudapi.plasgate.com/rest/send?private_key=${process.env.PRIVATE_KEY}`,{
       "sender" : "SMS Info",
       "to" : phone ,
-      "content" : "OTP code is "+otp
+      "content" : "[x] OTP code is " + otp + " " + hashkey
   },{
       headers: {
         'Content-Type': 'application/json',
